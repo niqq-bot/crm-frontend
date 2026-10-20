@@ -1,0 +1,84 @@
+/* Shown only when the signed-in user has no organisation linked to their account. */
+.org-gate-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 28px 18px;
+  background: #f7f8fc;
+  color: #172033;
+}
+
+.org-gate-card {
+  width: min(100%, 440px);
+  box-sizing: border-box;
+  padding: 30px;
+  border: 1px solid #e7e9f2;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 48px rgba(24, 32, 56, .07);
+}
+
+.org-gate-mark {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #efedff;
+  color: #6558f5;
+  margin-bottom: 20px;
+}
+
+.org-gate-eyebrow {
+  margin-bottom: 8px;
+  color: #777e96;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+
+.org-gate-card h1 {
+  margin: 0;
+  color: #202944;
+  font-size: clamp(24px, 5vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -.035em;
+}
+
+.org-gate-subtitle {
+  margin: 10px 0 24px;
+  color: #7b849b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.org-gate-form {
+  display: grid;
+  gap: 15px;
+}
+
+.org-gate-form .field {
+  width: 100%;
+}
+
+.org-gate-submit {
+  width: 100%;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 5px;
+}
+
+.org-gate-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff0ef;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .org-gate-card { padding: 24px 20px; }
+}
