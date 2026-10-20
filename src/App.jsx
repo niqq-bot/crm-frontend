@@ -19,28 +19,434 @@ const leadEnums={industry:['SOFTWARE','FINANCE','HEALTHCARE','EDUCATION','RETAIL
 const dealEnums={stage:['QUALIFICATION','NEEDS_ANALYSIS','VALUE_PROPOSITION','IDENTIFY_DECISION_MAKERS','PROPOSAL_PRICE_QUOTE','NEGOTIATION_REVIEW','CLOSED_WON','CLOSED_LOST'],type:['NEW_BUSINESS','EXISTING_BUSINESS','RENEWAL','UPSELL','CROSS_SELL'],leadSource:leadEnums.leadSource};
 const taskEnums={status:['NOT_STARTED','IN_PROGRESS','WAITING_FOR_INPUT','COMPLETED','DEFERRED'],priority:['LOWEST','LOW','NORMAL','HIGH','HIGHEST']};
 
-function App(){
- const [page,setPage]=useState('dashboard'),[token,setTokenState]=useState(getToken()),[me,setMe]=useState(null),[mobileNav,setMobileNav]=useState(false),[toast,setToast]=useState(null),[refresh,setRefresh]=useState(0),[search,setSearch]=useState('');
- const notify=(message,type='success')=>{setToast({message,type});setTimeout(()=>setToast(null),4200)};
- const logout=()=>{setToken('');setTokenState('');setMe(null);setPage('login');notify('Signed out','success')};
- useEffect(()=>{if(token){api('/auth/me').then(setMe).catch(()=>{});}},[token]);
- const title= NAV.flatMap(g=>g.items).find(x=>x[1]===page)?.[0] || ({login:'Welcome back',register:'Create account',forgot:'Reset password',inviteRegister:'Accept invitation'}[page]||'Logic-Q1 CRM');
- if(!token && !['login','register','forgot','inviteRegister'].includes(page)) return <AuthScreen mode="login" setPage={setPage} onAuth={(t,u)=>{setToken(t);setTokenState(t);setMe(u);setPage('dashboard');notify('Welcome to Logic-Q1 CRM');}} notify={notify}/>;
- if(['login','register','forgot','inviteRegister'].includes(page)) return <AuthScreen mode={page} setPage={setPage} onAuth={(t,u)=>{setToken(t);setTokenState(t);setMe(u);setPage('dashboard');notify('You are signed in');}} notify={notify}/>;
- return <div className="app-shell">
-  <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
-   <div className="brand"><div className="brand-mark"><Zap size={20} fill="currentColor"/></div><div><b>logic<span>Q1</span></b><small>CRM WORKSPACE</small></div><button className="icon-btn mobile-close" onClick={()=>setMobileNav(false)}><X size={18}/></button></div>
-   <div className="workspace-pill"><div className="workspace-avatar">L</div><div><b>Logic-Q1</b><small>Workspace</small></div><ChevronDown size={15}/></div>
-   <nav>{NAV.map(group=><div className="nav-group" key={group.group}><div className="nav-label">{group.group}</div>{group.items.map(([name,id,Icon])=><button key={id} className={`nav-item ${page===id?'active':''}`} onClick={()=>{setPage(id);setMobileNav(false);setSearch('')}}><Icon size={17}/><span>{name}</span>{id==='activity'&&<span className="nav-dot"/>}</button>)}</div>)}</nav>
-   <div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><CircleHelp size={17}/></div><b>Need a hand?</b><p>Manage your API connection and auth settings.</p><button onClick={()=>setPage('settings')}>Open settings <span>↗</span></button></div><div className="profile-mini"><div className="avatar">{initials(me?.firstName||me?.email||'User')}</div><div className="profile-copy"><b>{me?.firstName?`${me.firstName} ${me.lastName||''}`:me?.email||'CRM User'}</b><small>{me?.email||'Signed in'}</small></div><button className="icon-btn" title="Sign out" onClick={logout}><LogOut size={17}/></button></div></div>
-  </aside>
-  {mobileNav&&<div className="scrim" onClick={()=>setMobileNav(false)}/>}
-  <main className="main-area"><header className="topbar"><div className="topbar-left"><button className="icon-btn mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><b>{title}</b></div></div><div className="topbar-right"><div className="global-search"><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search this view..."/><kbd>⌘ K</kbd></div><button className="icon-btn bell-btn" title="Refresh data" onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={17}/></button><div className="top-avatar">{initials(me?.firstName||me?.email||'User')}</div></div></header>
-   <div className="page-wrap"><PageRouter page={page} setPage={setPage} refresh={refresh} search={search} notify={notify} me={me} logout={logout}/></div>
-   <footer className="footer"><span>© 2026 Logic-Q1 CRM</span><span><i className="live-dot"/> API connected interface <span className="footer-divider">·</span> <button onClick={()=>setPage('console')}>Developer console</button></span></footer>
-  </main>
-  {toast&&<div className={`toast ${toast.type}`}><span className="toast-icon">{toast.type==='error'?'!':'✓'}</span>{toast.message}<button onClick={()=>setToast(null)}><X size={15}/></button></div>}
- </div>
+function App() {
+  const [page, setPage] = useState('dashboard');
+  const [token, setTokenState] = useState(getToken());
+  const [me, setMe] = useState(null);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [refresh, setRefresh] = useState(0);
+  const [search, setSearch] = useState('');
+  const [checkingOrg, setCheckingOrg] = useState(true);
+
+  const notify = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4200);
+  };
+
+  const logout = () => {
+    setToken('');
+    setTokenState('');
+    setMe(null);
+    setPage('login');
+    notify('Signed out', 'success');
+  };
+
+  // Fetch the current user whenever the authentication token changes.
+  useEffect(() => {
+    if (!token) {
+      setMe(null);
+      setCheckingOrg(false);
+      return;
+    }
+
+    setCheckingOrg(true);
+
+    api('/auth/me')
+      .then(response => {
+        const user =
+          response?.user ??
+          response?.data?.user ??
+          response?.data ??
+          response;
+
+        setMe(user);
+      })
+      .catch(() => {
+        setMe(null);
+      })
+      .finally(() => {
+        setCheckingOrg(false);
+      });
+  }, [token]);
+
+  // Show the authentication screen if the user is logged out.
+  if (
+    !token &&
+    !['login', 'register', 'forgot', 'inviteRegister'].includes(page)
+  ) {
+    return (
+      <AuthScreen
+        mode="login"
+        setPage={setPage}
+        onAuth={(t, u) => {
+          setToken(t);
+          setTokenState(t);
+          setMe(u);
+          setCheckingOrg(true);
+          setPage('dashboard');
+          notify('Welcome to Logic-Q1 CRM');
+        }}
+        notify={notify}
+      />
+    );
+  }
+
+  // Show the selected authentication page.
+  if (['login', 'register', 'forgot', 'inviteRegister'].includes(page)) {
+    return (
+      <AuthScreen
+        mode={page}
+        setPage={setPage}
+        onAuth={(t, u) => {
+          setToken(t);
+          setTokenState(t);
+          setMe(u);
+          setCheckingOrg(true);
+          setPage('dashboard');
+          notify('You are signed in');
+        }}
+        notify={notify}
+      />
+    );
+  }
+
+  // Wait until the current user's organisation status is known.
+  if (token && checkingOrg) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          background: '#f7f8fc',
+          color: '#202944'
+        }}
+      >
+        Checking your organisation...
+      </div>
+    );
+  }
+
+  // If the user has no organisation, show ONLY the creation screen.
+  if (token && me && me.orgId == null) {
+    return (
+      <CreateOrganizationGate
+        onCreated={async () => {
+          setCheckingOrg(true);
+
+          try {
+            const response = await api('/auth/me');
+
+            const user =
+              response?.user ??
+              response?.data?.user ??
+              response?.data ??
+              response;
+
+            setMe(user);
+            setPage('dashboard');
+          } catch (error) {
+            notify(
+              'Organisation created, but refreshing your user details failed. Please refresh the page.',
+              'error'
+            );
+          } finally {
+            setCheckingOrg(false);
+          }
+        }}
+      />
+    );
+  }
+
+  // Keep the original CRM homepage and navigation.
+  const title =
+    NAV.flatMap(group => group.items).find(item => item[1] === page)?.[0] ||
+    ({
+      login: 'Welcome back',
+      register: 'Create account',
+      forgot: 'Reset password',
+      inviteRegister: 'Accept invitation'
+    }[page] || 'Logic-Q1 CRM');
+
+  return (
+    <div className="app-shell">
+      <aside className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
+        <div className="brand">
+          <div className="brand-mark">
+            <Zap size={20} fill="currentColor" />
+          </div>
+
+          <div>
+            <b>
+              logic<span>Q1</span>
+            </b>
+            <small>CRM WORKSPACE</small>
+          </div>
+
+          <button
+            className="icon-btn mobile-close"
+            onClick={() => setMobileNav(false)}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="workspace-pill">
+          <div className="workspace-avatar">L</div>
+          <div>
+            <b>Logic-Q1</b>
+            <small>Workspace</small>
+          </div>
+          <ChevronDown size={15} />
+        </div>
+
+        <nav>
+          {NAV.map(group => (
+            <div className="nav-group" key={group.group}>
+              <div className="nav-label">{group.group}</div>
+
+              {group.items.map(([name, id, Icon]) => (
+                <button
+                  key={id}
+                  className={`nav-item ${page === id ? 'active' : ''}`}
+                  onClick={() => {
+                    setPage(id);
+                    setMobileNav(false);
+                    setSearch('');
+                  }}
+                >
+                  <Icon size={17} />
+                  <span>{name}</span>
+                  {id === 'activity' && <span className="nav-dot" />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="help-card">
+            <div className="help-icon">
+              <CircleHelp size={17} />
+            </div>
+            <b>Need a hand?</b>
+            <p>Manage your API connection and auth settings.</p>
+            <button onClick={() => setPage('settings')}>
+              Open settings <span>↗</span>
+            </button>
+          </div>
+
+          <div className="profile-mini">
+            <div className="avatar">
+              {initials(me?.firstName || me?.email || 'User')}
+            </div>
+
+            <div className="profile-copy">
+              <b>
+                {me?.firstName
+                  ? `${me.firstName} ${me.lastName || ''}`
+                  : me?.email || 'CRM User'}
+              </b>
+              <small>{me?.email || 'Signed in'}</small>
+            </div>
+
+            <button
+              className="icon-btn"
+              title="Sign out"
+              onClick={logout}
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {mobileNav && (
+        <div
+          className="scrim"
+          onClick={() => setMobileNav(false)}
+        />
+      )}
+
+      <main className="main-area">
+        <header className="topbar">
+          <div className="topbar-left">
+            <button
+              className="icon-btn mobile-menu"
+              onClick={() => setMobileNav(true)}
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="breadcrumbs">
+              <span>Workspace</span>
+              <span className="crumb-slash">/</span>
+              <b>{title}</b>
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            <div className="global-search">
+              <Search size={16} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search this view..."
+              />
+              <kbd>⌘ K</kbd>
+            </div>
+
+            <button
+              className="icon-btn bell-btn"
+              title="Refresh data"
+              onClick={() => setRefresh(v => v + 1)}
+            >
+              <RefreshCw size={17} />
+            </button>
+
+            <div className="top-avatar">
+              {initials(me?.firstName || me?.email || 'User')}
+            </div>
+          </div>
+        </header>
+
+        <div className="page-wrap">
+          <PageRouter
+            page={page}
+            setPage={setPage}
+            refresh={refresh}
+            search={search}
+            notify={notify}
+            me={me}
+            logout={logout}
+          />
+        </div>
+
+        <footer className="footer">
+          <span>© 2026 Logic-Q1 CRM</span>
+
+          <span>
+            <i className="live-dot" /> API connected interface
+            <span className="footer-divider">·</span>
+            <button onClick={() => setPage('console')}>
+              Developer console
+            </button>
+          </span>
+        </footer>
+      </main>
+
+      {toast && (
+        <div className={`toast ${toast.type}`}>
+          <span className="toast-icon">
+            {toast.type === 'error' ? '!' : '✓'}
+          </span>
+
+          {toast.message}
+
+          <button onClick={() => setToast(null)}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function CreateOrganizationGate({ onCreated }) {
+  const [form, setForm] = useState({
+    name: '',
+    category: '',
+    country: '',
+    websiteUrl: ''
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const update = (key, value) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const create = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+
+    try {
+      await api('/organization/create', {
+        method: 'POST',
+        body: form
+      });
+
+      await onCreated();
+    } catch (err) {
+      setError(err.message || 'Could not create organisation.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'grid',
+      placeItems: 'center',
+      padding: 20,
+      background: '#f7f8fc'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: 440,
+        padding: 30,
+        boxSizing: 'border-box',
+        background: '#fff',
+        border: '1px solid #e7e9f2',
+        borderRadius: 18
+      }}>
+        <Building2 size={32} color="#6558f5" />
+
+        <h2>You are not part of any organisation</h2>
+        <p>Create one to get started. You can access your CRM after creation.</p>
+
+        <form onSubmit={create}>
+          <div className="form-stack">
+            <Field
+              label="Organisation name"
+              value={form.name}
+              onChange={v => update('name', v)}
+              required
+            />
+
+            <Field
+              label="Category"
+              value={form.category}
+              onChange={v => update('category', v)}
+              required
+            />
+
+            <Field
+              label="Country"
+              value={form.country}
+              onChange={v => update('country', v)}
+              required
+            />
+
+            <Field
+              label="Website URL"
+              type="url"
+              value={form.websiteUrl}
+              onChange={v => update('websiteUrl', v)}
+            />
+
+            {error && <p style={{ color: '#b42318' }}>{error}</p>}
+
+            <button type="submit" disabled={busy}>
+              {busy ? 'Creating...' : 'Create organisation'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function AuthScreen({mode,setPage,onAuth,notify}){
