@@ -44,9 +44,12 @@ function App() {
 
   // Fetch the current user whenever the authentication token changes.
   useEffect(() => {
+    let cancelled = false;
+
     if (!token) {
       setMe(null);
       setCheckingOrg(false);
+      setPage('login');
       return;
     }
 
@@ -54,22 +57,39 @@ function App() {
 
     api('/auth/me')
       .then(response => {
+        if (cancelled) return;
+
         const user =
           response?.user ??
           response?.data?.user ??
           response?.data ??
           response;
 
+        if (!user || !user.id) {
+          throw new Error('Invalid /auth/me response');
+        }
+
         setMe(user);
       })
-      .catch(() => {
+      .catch(error => {
+        if (cancelled) return;
+
+        console.error('Failed to validate session:', error);
+
+        // An invalid session must not open the dashboard.
+        setToken('');
+        setTokenState('');
         setMe(null);
+        setPage('login');
       })
       .finally(() => {
-        setCheckingOrg(false);
+        if (!cancelled) setCheckingOrg(false);
       });
-  }, [token]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
   // Show the authentication screen if the user is logged out.
   if (
     !token &&
@@ -483,8 +503,36 @@ function Dashboard({setPage,refresh,notify}){
  const ls=normalizeList(leads.data),ds=normalizeList(deals.data),ts=normalizeList(tasks.data),os=normalizeList(orgs.data),events=normalizeList(feed.data);
  const amount=ds.reduce((n,d)=>n+(Number(d.amount)||0),0);const won=ds.filter(d=>String(d.stage).includes('CLOSED_WON')).length;
  return <><PageHeader eyebrow="MONDAY, MADE MORE PRODUCTIVE" title="Your workspace" subtitle="Here’s what’s happening across your customer relationships." action={()=>setPage('leads')} actionLabel="Add a lead"/><div className="welcome-strip"><div><div className="welcome-label"><span className="live-dot"/> WORKSPACE OVERVIEW</div><h2>Good things happen when everything connects.</h2><p>Keep an eye on your pipeline, your people, and what needs attention next.</p></div><div className="welcome-art"><div className="welcome-ring ring-a"/><div className="welcome-ring ring-b"/><div className="welcome-glyph"><Zap size={30}/></div></div></div>
- <div className="stats-grid"><StatCard label="Total leads" value={leads.loading?'…':ls.length} detail="Across your pipeline" icon={Zap} tone="purple"/><StatCard label="Active deals" value={deals.loading?'…':ds.filter(d=>!String(d.stage||'').startsWith('CLOSED')).length} detail={`${won} closed won`} icon={BriefcaseBusiness} tone="blue"/><StatCard label="Tasks" value={tasks.loading?'…':ts.length} detail={`${ts.filter(t=>t.status==='COMPLETED').length} completed`} icon={ClipboardList} tone="orange"/><StatCard label="Organizations" value={orgs.loading?'…':os.length||'—'} detail="Connected workspace" icon={Building2} tone="green"/></div>
- <div className="dashboard-grid"><section className="panel pipeline-panel"><div className="panel-head"><div><h3>Deal pipeline</h3><p>Snapshot of your current opportunities</p></div><button className="text-link" onClick={()=>setPage('deals')}>View deals ↗</button></div><div className="pipeline-total"><div><span>Total deal value</span><b>{new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(amount)}</b></div><div className="pipeline-chip">{ds.length} opportunities</div></div><div className="pipeline-bars">{(dealEnums.stage).map((s,i)=>{const count=ds.filter(d=>d.stage===s).length;return <div className="pipeline-row" key={s}><span>{labelize(s)}</span><div className="bar-track"><i style={{width:`${ds.length?Math.max(count/ds.length*100,count?8:0):0}%`}}/></div><b>{count}</b></div>})}</div></section><section className="panel activity-panel"><div className="panel-head"><div><h3>Latest activity</h3><p>Recent changes in your organization</p></div><button className="icon-btn" onClick={()=>setPage('activity')}><ArrowDownToLine size={17}/></button></div><LoadingOrError loading={feed.loading} error={feed.error} retry={feed.reload}/>{!feed.loading&&!feed.error&&(events.length?<div className="activity-list">{events.slice(0,6).map((e,i)=><ActivityItem key={e.id||i} item={e}/>)}</div>:<Empty title="A quiet moment" desc="Recent organization activity will show up here."/> )}</section></div>
+ <div className="stats-grid">
+   <StatCard
+     label="Total leads"
+     value={leads.loading ? '…' : ls.length}
+     detail="Across your pipeline"
+     icon={Zap}
+     tone="purple"
+   />
+
+   <StatCard
+     label="Active deals"
+     value={
+       deals.loading
+         ? '…'
+         : ds.filter(d => !String(d.stage || '').startsWith('CLOSED')).length
+     }
+     detail={`${won} closed won`}
+     icon={BriefcaseBusiness}
+     tone="blue"
+   />
+
+   <StatCard
+     label="Tasks"
+     value={tasks.loading ? '…' : ts.length}
+     detail={`${ts.filter(t => t.status === 'COMPLETED').length} completed`}
+     icon={ClipboardList}
+     tone="orange"
+   />
+ </div>
+  <div className="dashboard-grid"><section className="panel pipeline-panel"><div className="panel-head"><div><h3>Deal pipeline</h3><p>Snapshot of your current opportunities</p></div><button className="text-link" onClick={()=>setPage('deals')}>View deals ↗</button></div><div className="pipeline-total"><div><span>Total deal value</span><b>{new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(amount)}</b></div><div className="pipeline-chip">{ds.length} opportunities</div></div><div className="pipeline-bars">{(dealEnums.stage).map((s,i)=>{const count=ds.filter(d=>d.stage===s).length;return <div className="pipeline-row" key={s}><span>{labelize(s)}</span><div className="bar-track"><i style={{width:`${ds.length?Math.max(count/ds.length*100,count?8:0):0}%`}}/></div><b>{count}</b></div>})}</div></section><section className="panel activity-panel"><div className="panel-head"><div><h3>Latest activity</h3><p>Recent changes in your organization</p></div><button className="icon-btn" onClick={()=>setPage('activity')}><ArrowDownToLine size={17}/></button></div><LoadingOrError loading={feed.loading} error={feed.error} retry={feed.reload}/>{!feed.loading&&!feed.error&&(events.length?<div className="activity-list">{events.slice(0,6).map((e,i)=><ActivityItem key={e.id||i} item={e}/>)}</div>:<Empty title="A quiet moment" desc="Recent organization activity will show up here."/> )}</section></div>
  <section className="panel quick-panel"><div className="panel-head"><div><h3>Jump back in</h3><p>Common actions, right where you need them.</p></div></div><div className="quick-actions">{[['Create a lead','leads',Zap,'purple'],['Add a contact','contacts',ContactRound,'blue'],['Create a deal','deals',BriefcaseBusiness,'green'],['Plan a task','tasks',ClipboardList,'orange']].map(([name,id,Icon,tone])=><button className="quick-action" key={id} onClick={()=>setPage(id)}><div className={`quick-icon ${tone}`}><Icon size={19}/></div><span>{name}</span><b>↗</b></button>)}</div></section></>;
 }
 
