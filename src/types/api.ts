@@ -420,7 +420,6 @@ export interface ValidateOrganizationInviteResponse {
 }
 
 export interface RegisterInviteRequest {
-  token: string;
   firstName: string;
   lastName: string;
   password?: string;
