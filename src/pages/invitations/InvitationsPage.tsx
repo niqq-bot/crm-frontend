@@ -23,17 +23,25 @@ import {
 
 // Standard role presets with readable labels and standard UUID mappings
 const AVAILABLE_ROLES = [
-  { id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', label: 'Organization Admin', description: 'Full management permissions' },
-  { id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901', label: 'Sales Manager', description: 'Manage pipeline, deals, and team tasks' },
-  { id: 'c3d4e5f6-a7b8-9012-cdef-123456789012', label: 'Team Member', description: 'Create and update leads, contacts, deals' },
+{
+id: '22222222-2222-2222-2222-222222222222',
+label: 'Organization Admin',
+description: 'Organization administration',
+},
+{
+id: '33333333-3333-3333-3333-333333333333',
+label: 'Member',
+description: 'Standard organization membership',
+},
 ];
+
 
 export const InvitationsPage: React.FC = () => {
   const { user, organizationName } = useAuth();
 
   // Create invite form state
   const [email, setEmail] = useState('');
-  const [roleId, setRoleId] = useState(AVAILABLE_ROLES[2].id);
+  const [roleId, setRoleId] = useState(AVAILABLE_ROLES[1].id);
   const [isSending, setIsSending] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

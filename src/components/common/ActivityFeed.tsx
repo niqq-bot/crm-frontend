@@ -95,7 +95,10 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     {config.label}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    on {item.entityType}
+                    on {item.entityType
+                      ? item.entityType.charAt(0).toUpperCase() +
+                        item.entityType.slice(1).toLowerCase()
+                      : 'Unknown'}
                   </span>
                 </div>
                 <time
