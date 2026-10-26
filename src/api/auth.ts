@@ -58,8 +58,15 @@ export const authApi = {
     return res.data;
   },
 
-  registerInvite: async (data: RegisterInviteRequest): Promise<string> => {
-    const res = await apiClient.post<string>('/auth/register-invite', data);
-    return res.data;
+  registerInvite: async (
+    token: string,
+    data: RegisterInviteRequest
+  ) => {
+    const response = await apiClient.post(
+      `/auth/register-invite/${encodeURIComponent(token)}`,
+      data
+    );
+
+    return response.data;
   },
 };
