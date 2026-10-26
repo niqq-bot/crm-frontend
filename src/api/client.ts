@@ -9,12 +9,13 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor for Bearer token
+// Request interceptor for Bearer token (strips duplicate 'Bearer ' prefix if present)
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('crm_token');
     if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+      config.headers.Authorization = `Bearer ${cleanToken}`;
     }
     return config;
   },

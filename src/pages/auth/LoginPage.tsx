@@ -39,8 +39,12 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await authApi.login({ email: email.trim(), password });
-      if (res.token) {
-        const loginResult = await login(res.token, res.user);
+      const raw = res as any;
+      const token = raw.token || raw.accessToken || raw.jwt || raw.data?.token || raw.data?.accessToken;
+      const userPayload = raw.user || raw.data?.user || raw.userData || raw;
+
+      if (token) {
+        const loginResult = await login(token, userPayload);
 
         // When user has organization as null, prompt them to create an organization (onboarding)
         // else redirect directly to the CRM dashboard
