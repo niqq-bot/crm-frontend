@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, extractOrganizationId } from '@/context/AuthContext';
 import { organizationsApi } from '@/api/organizations';
 import { getErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/Button';
@@ -44,10 +44,7 @@ export const OnboardingPage: React.FC = () => {
       // Refresh authenticated user to verify organization membership is updated
       const refreshedUser = await refreshUser();
 
-      const newOrgId =
-        refreshedUser?.organization?.id ||
-        (refreshedUser as any)?.orgId ||
-        (refreshedUser as any)?.organizationId;
+      const newOrgId = extractOrganizationId(refreshedUser);
 
       if (newOrgId) {
         toast.success(`Welcome to ${orgName.trim()}! Workspace initialized.`);

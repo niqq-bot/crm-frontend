@@ -39,9 +39,13 @@ export const RegisterPage: React.FC = () => {
       });
 
       if (res.token) {
-        await login(res.token, res.user);
+        const loginResult = await login(res.token, res.user);
         toast.success('Account created successfully!');
-        navigate('/onboarding');
+        if (!loginResult.hasOrganization) {
+          navigate('/onboarding', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
       } else {
         toast.success('Registration successful! Please sign in.');
         navigate('/login');

@@ -12,11 +12,22 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, hasOrganization, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const isSessionExpired = searchParams.get('session_expired') === 'true';
+
+  // If already authenticated, redirect immediately based on organization presence
+  React.useEffect(() => {
+    if (isAuthenticated && !isAuthLoading) {
+      if (!hasOrganization) {
+        navigate('/onboarding', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, hasOrganization, isAuthLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +40,17 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await authApi.login({ email: email.trim(), password });
       if (res.token) {
-        await login(res.token, res.user);
-        toast.success('Welcome back!');
-        // Redirect will automatically be checked by ProtectedRoute (to /dashboard or /onboarding)
-        navigate('/dashboard');
+        const loginResult = await login(res.token, res.user);
+
+        // When user has organization as null, prompt them to create an organization (onboarding)
+        // else redirect directly to the CRM dashboard
+        if (!loginResult.hasOrganization) {
+          toast.info('Please create an organization to initialize your workspace.');
+          navigate('/onboarding', { replace: true });
+        } else {
+          toast.success('Welcome back!');
+          navigate('/dashboard', { replace: true });
+        }
       } else {
         toast.error(res.message || 'Login failed. No token received.');
       }

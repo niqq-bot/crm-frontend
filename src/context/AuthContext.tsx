@@ -2,6 +2,12 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User } from '@/types/api';
 import { authApi } from '@/api/auth';
 
+export interface LoginResult {
+  user: User | null;
+  hasOrganization: boolean;
+  organizationId: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -10,9 +16,50 @@ interface AuthContextType {
   hasOrganization: boolean;
   organizationId: string | null;
   organizationName: string | null;
-  login: (token: string, initialUser?: any) => Promise<void>;
+  login: (token: string, initialUser?: any) => Promise<LoginResult>;
   logout: () => void;
   refreshUser: () => Promise<User | null>;
+}
+
+export function extractOrganizationId(userObj: any): string | null {
+  if (!userObj || typeof userObj !== 'object') return null;
+
+  // 1. user.organization.id
+  if (userObj.organization && typeof userObj.organization === 'object' && userObj.organization.id) {
+    const id = String(userObj.organization.id).trim();
+    if (id && id !== 'null' && id !== 'undefined') return id;
+  }
+
+  // 2. user.organization as string ID
+  if (typeof userObj.organization === 'string') {
+    const id = userObj.organization.trim();
+    if (id && id !== 'null' && id !== 'undefined') return id;
+  }
+
+  // 3. user.orgId (from login response DTO)
+  if (userObj.orgId) {
+    const id = String(userObj.orgId).trim();
+    if (id && id !== 'null' && id !== 'undefined') return id;
+  }
+
+  // 4. user.organizationId (from user response DTO)
+  if (userObj.organizationId) {
+    const id = String(userObj.organizationId).trim();
+    if (id && id !== 'null' && id !== 'undefined') return id;
+  }
+
+  return null;
+}
+
+export function extractOrganizationName(userObj: any): string | null {
+  if (!userObj || typeof userObj !== 'object') return null;
+  if (userObj.organization && typeof userObj.organization === 'object' && userObj.organization.name) {
+    return String(userObj.organization.name).trim();
+  }
+  if (userObj.organizationName) {
+    return String(userObj.organizationName).trim();
+  }
+  return null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,14 +114,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchCurrentUser]);
 
-  const login = async (newToken: string, initialUser?: any) => {
+  const login = async (newToken: string, initialUser?: any): Promise<LoginResult> => {
     localStorage.setItem('crm_token', newToken);
     setToken(newToken);
+
+    let resolvedUser: User | null = null;
     if (initialUser) {
       setUser(initialUser);
       localStorage.setItem('crm_user', JSON.stringify(initialUser));
+      resolvedUser = initialUser;
     }
-    await fetchCurrentUser();
+
+    try {
+      const me = await fetchCurrentUser();
+      if (me) {
+        resolvedUser = me;
+      }
+    } catch (e) {
+      console.error('Error fetching /auth/me on login:', e);
+    }
+
+    const orgId = extractOrganizationId(resolvedUser) || (initialUser ? extractOrganizationId(initialUser) : null);
+    const hasOrg = Boolean(orgId);
+
+    return {
+      user: resolvedUser,
+      hasOrganization: hasOrg,
+      organizationId: orgId,
+    };
   };
 
   const logout = () => {
@@ -89,13 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Determine organization membership strictly
-  const orgId =
-    user?.organization?.id ||
-    (user as any)?.orgId ||
-    (user as any)?.organizationId ||
-    null;
-
-  const orgName = user?.organization?.name || null;
+  const orgId = extractOrganizationId(user);
+  const orgName = extractOrganizationName(user);
   const hasOrganization = Boolean(orgId);
 
   return (
