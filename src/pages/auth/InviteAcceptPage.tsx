@@ -58,14 +58,16 @@ export const InviteAcceptPage: React.FC = () => {
       return;
     }
 
+
     setIsSubmitting(true);
     try {
-      await authApi.registerInvite({
-        token,
+      await authApi.registerInvite(token, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         password,
       });
+
+
 
       toast.success('Invitation accepted successfully! Please sign in with your credentials.');
       navigate('/login');
